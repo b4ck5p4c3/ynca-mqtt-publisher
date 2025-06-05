@@ -1,0 +1,24 @@
+{
+  "name": "ynca-mqtt-publisher",
+  "version": "1.0.0",
+  "description": "Simple tool to publish Yamaha YNCA updates to MQTT",
+  "main": "src/main.ts",
+  "repository": "https://github.com/b4ck5p4c3/ynca-mqtt-publisher",
+  "author": "radioegor146",
+  "license": "MIT",
+  "scripts": {
+    "start": "tsx src/main.ts"
+  },
+  "dependencies": {
+    "@types/express": "^5.0.2",
+    "@types/node": "^22.15.30",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "mitt": "^3.0.1",
+    "mqtt": "^5.13.1",
+    "promise-socket": "^8.0.0",
+    "tslog": "^4.9.3",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}
