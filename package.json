@@ -17,6 +17,7 @@
     "mitt": "^3.0.1",
     "mqtt": "^5.13.1",
     "promise-socket": "^8.0.0",
+    "semaphore-async-await": "^1.5.1",
     "tslog": "^4.9.3",
     "tsx": "^4.19.4",
     "typescript": "^5.8.3"

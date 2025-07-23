@@ -16,6 +16,8 @@ const YAMAHA_RECEIVER_CONNECT_TIMEOUT = parseInt(process.env.YAMAHA_RECEIVER_CON
 const YAMAHA_RECEIVER_PING_COMMAND = process.env.YAMAHA_RECEIVER_PING_COMMAND ?? "@MAIN:PWR=?";
 const YAMAHA_RECEIVER_PING_INTERVAL = parseInt(process.env.YAMAHA_RECEIVER_PING_INTERVAL ?? "1000");
 const MQTT_URL = process.env.MQTT_URL ?? "mqtts://avreceiver:avreceiver@mqtt.svc.bksp.in:8883";
+const MQTT_RAW_TOPIC_PREFIX = process.env.MQTT_RAW_TOPIC_PREFIX ?? "bus/devices/solgaleo-av/raw";
+const MQTT_NOW_PLAYING_TOPIC = process.env.MQTT_NOW_PLAYING_TOPIC ?? "bus/devices/av/now_playing";
 const CA_CERTIFICATE_PATH = process.env.CA_CERTIFICATE_PATH ?? "ca-cert.pem";
 const PORT = parseInt(process.env.PORT ?? "8015");
 
@@ -45,7 +47,13 @@ mqttClient.on("error", e => {
 yncaClient.run().catch(e => logger.error(`Failed to run YNCA client: ${e}`));
 
 yncaClient.on("message", message => {
-    mqttClient.publish("bus/devices/solgaleo-av/raw", message.raw);
+    mqttClient.publish(`${MQTT_RAW_TOPIC_PREFIX}/receive`, message.raw);
+});
+mqttClient.subscribe(`${MQTT_RAW_TOPIC_PREFIX}/receive`);
+mqttClient.on("message", (topic, payload) => {
+    if (topic === `${MQTT_RAW_TOPIC_PREFIX}/send`) {
+        yncaClient.sendCommand(payload.toString("utf8")).catch(e => logger.error(`Failed to send command: ${e}`));
+    }
 });
 
 let state: AVStatusMessage = {
@@ -163,7 +171,7 @@ function processMessageForState(currentState: AVStatusMessage, message: YNCAMess
 
 yncaClient.on("message", message => {
     if (processMessageForState(state, message)) {
-        mqttClient.publish("bus/devices/av/now_playing", JSON.stringify(message));
+        mqttClient.publish(MQTT_NOW_PLAYING_TOPIC, JSON.stringify(message));
     }
 });
 

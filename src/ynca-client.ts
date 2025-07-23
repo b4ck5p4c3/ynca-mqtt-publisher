@@ -4,6 +4,7 @@ import {getLogger} from "./logger";
 import {sleep} from "./utils";
 import EventEmitter from "node:events";
 import {Mitt} from "./mitt";
+import Semaphore from "semaphore-async-await";
 
 const YNCA_RECONNECT_INTERVAL = 1000;
 
@@ -46,9 +47,20 @@ interface YNCAEvents extends Record<string | symbol, unknown> {
 
 export class YNCAClient extends Mitt<YNCAEvents> {
     private logger = getLogger<YNCAClient>();
+    private socket: PromiseSocket<Socket> | undefined = undefined;
+    private writeLock: Semaphore = new Semaphore(1);
 
     constructor(private config: YNCAClientConfig) {
         super();
+
+        (async () => {
+            // noinspection InfiniteLoopJS
+            while (true) {
+                await this.sendCommand(this.config.pingCommand);
+                await sleep(this.config.pingInterval);
+            }
+        })().catch(() => {
+        });
     }
 
     async run(): Promise<void> {
@@ -62,28 +74,15 @@ export class YNCAClient extends Mitt<YNCAEvents> {
                 promiseSocket.setTimeout(this.config.connectTimeout);
                 await promiseSocket.connect(this.config.port, this.config.host);
                 promiseSocket.setTimeout(this.config.pingInterval * 2);
+                this.socket = promiseSocket;
 
                 this.logger.info(`Connected to YNCA at ${this.config.host}:${this.config.port}`);
 
                 let currentBuffers: Buffer[] = [];
 
-                (async () => {
-                    const currentSocket = promiseSocket;
-                    try {
-                        // noinspection InfiniteLoopJS
-                        while (true) {
-                            await currentSocket.write(Buffer.from(`${this.config.pingCommand}\r\n`, "utf8"));
-                            await sleep(this.config.pingInterval);
-                        }
-                    } catch (e) {
-                        currentSocket.destroy();
-                        // ignore
-                    }
-                })().catch(() => {});
-
                 // noinspection InfiniteLoopJS
                 while (true) {
-                    const buffer = await promiseSocket.read() as Buffer;
+                    const buffer = await this.socket.read() as Buffer;
                     currentBuffers.push(buffer);
 
                     const receivedLines: string[] = [];
@@ -96,7 +95,8 @@ export class YNCAClient extends Mitt<YNCAEvents> {
             } catch (e) {
                 this.logger.error(`Failed to receive from YNCA socket: ${e}`);
 
-                promiseSocket?.destroy();
+                this.socket?.destroy();
+                this.socket = undefined;
             }
 
             await sleep(YNCA_RECONNECT_INTERVAL);
@@ -115,5 +115,16 @@ export class YNCAClient extends Mitt<YNCAEvents> {
             value: match.groups!.value,
             raw: line
         });
+    }
+
+    async sendCommand(command: string): Promise<void> {
+        await this.writeLock.acquire();
+        try {
+            await this.socket?.write(Buffer.from(`${command}\r\n`, "utf8"));
+        } catch (e) {
+            this.socket?.destroy();
+        } finally {
+            this.writeLock.release();
+        }
     }
 }
