@@ -58,7 +58,9 @@ mqttClient.subscribe(`${MQTT_RAW_TOPIC_PREFIX}/send`, error => {
 });
 mqttClient.on("message", (topic, payload) => {
     if (topic === `${MQTT_RAW_TOPIC_PREFIX}/send`) {
-        yncaClient.sendCommand(payload.toString("utf8")).catch(e => logger.error(`Failed to send command: ${e}`));
+        const command = payload.toString("utf8");
+        logger.info(`Sending command ${command} to YNCA`);
+        yncaClient.sendCommand(command).catch(e => logger.error(`Failed to send command: ${e}`));
     }
 });
 
