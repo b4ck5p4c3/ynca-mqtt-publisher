@@ -49,7 +49,13 @@ yncaClient.run().catch(e => logger.error(`Failed to run YNCA client: ${e}`));
 yncaClient.on("message", message => {
     mqttClient.publish(`${MQTT_RAW_TOPIC_PREFIX}/receive`, message.raw);
 });
-mqttClient.subscribe(`${MQTT_RAW_TOPIC_PREFIX}/receive`);
+mqttClient.subscribe(`${MQTT_RAW_TOPIC_PREFIX}/send`, error => {
+    if (error) {
+        logger.error(`Failed to subscribe to ${MQTT_RAW_TOPIC_PREFIX}/send: ${error}`);
+        return;
+    }
+    logger.info("Subscribed to MQTT");
+});
 mqttClient.on("message", (topic, payload) => {
     if (topic === `${MQTT_RAW_TOPIC_PREFIX}/send`) {
         yncaClient.sendCommand(payload.toString("utf8")).catch(e => logger.error(`Failed to send command: ${e}`));
